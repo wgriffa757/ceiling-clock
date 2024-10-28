@@ -1,0 +1,143 @@
+ <!DOCTYPE html>
+<html>
+
+<head>
+
+<meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cambridge Time Widget</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh; /* Full height of the viewport */
+            margin: 0;
+            background-color: black; /* Black background */
+        }
+        #cambridge-clock {
+            position: absolute; /* Positioning at the top */
+            top: 0; /* Align to the top */
+            left: 50%; /* Center horizontally */
+            transform: translateX(-50%); /* Adjust for centering */
+            font-size: 170px; /* Font size */
+            font-weight: bold;
+            color: green; /* Green text */
+            font-family: Arial, sans-serif;
+            padding: 10px; /* Optional padding */
+        }
+    </style>
+
+</head>
+
+<body>
+
+<div id="cambridge-clock"></div>
+
+<script>
+function updateCambridgeTime() {
+    const options = {
+        timeZone: 'America/Toronto',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+    };
+    const time = new Date().toLocaleTimeString('en-US', options);
+    document.getElementById('cambridge-clock').textContent = time;
+}
+
+updateCambridgeTime();
+setInterval(updateCambridgeTime, 60000);
+</script>
+
+<br>
+
+
+<div id="weather-widget" style="width: 1490px; height: 420px; background-color: #030000; color: #3bf00e; font-family: Arial, sans-serif; display: flex; align-items: center; justify-content: space-between; padding: 10px; font-size: 65px; line-height: 0.8;">
+</div>
+
+<script>
+const apiKey = 'Your-API-Key';
+const city = 'Cambridge,CA';
+const forecastUrl = `https://api.openweathermap.org/data/2.5/forecast?q=${city}&appid=${apiKey}&units=metric`;
+const currentUrl = `https://api.openweathermap.org/data/2.5/weather?q=${city}&appid=${apiKey}&units=metric`;
+
+async function fetchWeather() {
+  try {
+    const [forecastResponse, currentResponse] = await Promise.all([
+      fetch(forecastUrl),
+      fetch(currentUrl)
+    ]);
+
+    if (!forecastResponse.ok || !currentResponse.ok) {
+      throw new Error(`HTTP error! status: ${forecastResponse.status} or ${currentResponse.status}`);
+    }
+
+    const forecastData = await forecastResponse.json();
+    const currentData = await currentResponse.json();
+
+    updateWidget(forecastData, currentData);
+  } catch (error) {
+    console.error('Error fetching weather data:', error);
+    document.getElementById('weather-widget').innerHTML = `<p>Error fetching weather data. Please try again later.</p>`;
+  }
+}
+
+function cleanString(str) {
+  return str.replace(/[^\x20-\x7E]/g, '').replace(/[Â°]/g, '°');
+}
+
+function formatValue(value) {
+  return value != null ? Number(value).toFixed(1) : '0';
+}
+
+function formatTime(timestamp) {
+  return new Date(timestamp * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+}
+
+function updateWidget(forecastData, currentData) {
+  const widget = document.getElementById('weather-widget');
+
+  if (!forecastData || !forecastData.list || forecastData.list.length === 0 || !currentData) {
+    console.error('Invalid data structure:', {forecastData, currentData});
+    widget.innerHTML = `<p>Error: Invalid weather data received.</p>`;
+    return;
+  }
+
+  // Current weather
+  const current = forecastData.list[0];
+  const currentWeatherHtml = `
+    <div style="text-align: center; flex: 1;">
+      <p>${cleanString(formatValue(current.main.temp))}°C</p>
+      <p>High: ${cleanString(formatValue(current.main.temp_max))}°C</p>
+      <p>Rain: ${(current.pop * 100).toFixed(0)}%, ${cleanString(current.rain ? formatValue(current.rain['3h']) : '0')} mm</p>
+      <p>Sunrise: ${formatTime(currentData.sys.sunrise)}</p>
+      <p>Sunset: ${formatTime(currentData.sys.sunset)}</p>
+    </div>
+  `;
+
+  // Forecast
+  let forecastHtml = '';
+  for (let i = 1; i < 5; i++) {
+    const day = forecastData.list[i * 8];
+    if (day) {
+      forecastHtml += `
+        <div style="text-align: center; flex: 1;">
+          <p>${new Date(day.dt * 1000).toLocaleDateString(undefined, {weekday: 'short'})}</p>
+          <p>H: ${cleanString(formatValue(day.main.temp_max))}°C</p>
+          <p>L: ${cleanString(formatValue(day.main.temp_min))}°C</p>
+          <p>Rain: ${(day.pop * 100).toFixed(0)}%</p>
+        </div>
+      `;
+    }
+  }
+
+  widget.innerHTML = cleanString(currentWeatherHtml + forecastHtml);
+}
+
+fetchWeather();
+setInterval(fetchWeather, 3600000); // Update every hour
+</script>
+
+
+</html>
